@@ -3,11 +3,12 @@ import { ApiErrorResponse } from "@/types/api";
 import { AuthTokens } from "@/types/auth";
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth";
 
-const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-if (!baseURL) {
-  throw new Error("NEXT_PUBLIC_API_BASE_URL is not set. Add it to .env.local.");
-}
+// NEXT_PUBLIC_* vars are inlined at build time, so this must be set wherever the app is built
+// (e.g. Vercel's Environment Variables, not just a local, gitignored .env.local). Deliberately
+// NOT a top-level throw when missing — that would crash every page's build (including ones that
+// never call the API, like the auto-generated /_not-found), rather than failing at the point
+// the value actually matters. Missing config surfaces loudly the first time a request is made.
+const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export const apiClient = axios.create({
   baseURL,
@@ -17,6 +18,11 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  if (!baseURL) {
+    console.error(
+      "NEXT_PUBLIC_API_BASE_URL is not set — API requests will fail. Set it in .env.local (dev) or your host's environment variables (production)."
+    );
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.set("Authorization", `Bearer ${token}`);
